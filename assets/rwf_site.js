@@ -15,7 +15,13 @@ const ms=s=>{const a=Date.parse(s||'');return Number.isFinite(a)?a:Infinity};
 const events=Array.isArray(DATA.shows)?DATA.shows:[];
 // Archive: publish time has arrived, event completed, and actual YouTube video is known.
 const published=()=>events.filter(e=>e.complete&&(e.youtubeId||DATA.preview)&&ms(e.releaseAt)<=now()).sort((a,b)=>ms(b.releaseAt)-ms(a.releaseAt));
-const scheduled=()=>events.filter(e=>e.releaseAt&&ms(e.releaseAt)>now()).sort((a,b)=>ms(a.releaseAt)-ms(b.releaseAt));
+// Only public show metadata; never publish booked winners, storylines or future results.
+const scheduled=()=>events.filter(e=>e.status!=='cancelled'&&(e.status==='planned'||(e.releaseAt&&ms(e.releaseAt)>now()))).sort((a,b)=>{
+ const af=a.releaseAt&&ms(a.releaseAt)>now()?ms(a.releaseAt):Infinity;
+ const bf=b.releaseAt&&ms(b.releaseAt)>now()?ms(b.releaseAt):Infinity;
+ return af-bf||a.year-b.year||a.month-b.month||a.week-b.week;
+});
+const awaiting=()=>events.filter(e=>e.complete&&e.releaseAt&&ms(e.releaseAt)<=now()&&!e.youtubeId);
 const tv=()=>published().filter(e=>e.category!=='PPV');
 const ppv=()=>published().filter(e=>e.category==='PPV');
 const niceDate=s=>{if(!s)return'Not scheduled';let n=new Date(s);return Number.isNaN(+n)?'Not scheduled':new Intl.DateTimeFormat('en-US',{timeZone:DATA.timezone||'Europe/Istanbul',month:'long',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',hour12:true}).format(n)};
@@ -23,7 +29,21 @@ const logo=e=>`<img src="${asset(e.logo)}" alt="${esc(e.name)} logo" loading="la
 const tag=t=>`<span class="tag">${esc(t)}</span>`;
 const title=(small,large,sub='')=>`<div class="archive-intro"><div class="container"><div class="eyebrow">${esc(small)}</div><h1 class="page-title">${esc(large)}</h1>${sub?`<p class="muted">${esc(sub)}</p>`:''}</div></div>`;
 function card(e){return `<a class="event-row" ${link('show/'+encodeURIComponent(e.id))}>${logo(e)}<div><div class="eyebrow">${e.category==='PPV'?'RWF Pay-Per-View':'RWF Television'}</div><h3>${esc(e.name)}</h3><div class="event-sub"><span>${esc(e.universeDate)}</span><time>${esc(e.previewOnly?'Preview only — not published':niceDate(e.releaseAt))}</time><span>${esc(e.location)}</span></div></div><span class="arrow" aria-hidden="true">→</span></a>`}
-function showList(kind){const arr=kind==='ppv'?ppv():tv();return title('RWF Video Archive',kind==='ppv'?'Pay-Per-Views':'Shows',kind==='ppv'?'Major events. Full shows. The complete PPV archive.':'Every published Reckoning episode and special event.')+`<div class="container">${arr.length?`<div class="event-list">${arr.map(card).join('')}</div>`:`<div class="empty archive-empty">No published ${kind==='ppv'?'PPVs':'shows'} have a YouTube video attached yet. Completed events will appear here after their real-world publication time and video URL are confirmed.</div>`}</div>`}
+function scheduledCard(e){
+ const pastNoLink=e.complete&&e.releaseAt&&ms(e.releaseAt)<=now()&&!e.youtubeId;
+ const status=pastNoLink?'VIDEO LINK PENDING':e.releaseAt?'UPCOMING BROADCAST':'DATE TO BE ANNOUNCED';
+ const timing=e.releaseAt?niceDate(e.releaseAt):'YouTube release date to be announced';
+ return `<div class="event-row">${logo(e)}<div><div class="eyebrow">${esc(status)}</div><h3>${esc(e.name)}</h3><div class="event-sub"><span>${esc(e.universeDate)}</span><time>${esc(timing)}</time><span>${esc(e.location)}</span></div></div><span class="arrow" aria-hidden="true">⌛</span></div>`;
+}
+function showList(kind){
+ const pred=e=>kind==='ppv'?e.category==='PPV':e.category!=='PPV';
+ const aired=published().filter(pred);
+ const future=scheduled().filter(pred);
+ const pending=awaiting().filter(pred);
+ const section=(heading,arr,renderRow)=>`<section class="section"><div class="eyebrow">RWF PROGRAMMING</div><h2 class="section-title">${heading}</h2>${arr.length?`<div class="event-list">${arr.map(renderRow).join('')}</div>`:'<div class="empty">No shows in this category yet.</div>'}</section>`;
+ return title('RWF Programming',kind==='ppv'?'Pay-Per-Views':'Shows','Published broadcasts and upcoming events, updated from RWF Booking Career.')+
+ `<div class="container">${section('Watch Full Shows',aired,card)}${section('Coming Up',future,scheduledCard)}${pending.length?section('Awaiting Video Links',pending,scheduledCard):''}</div>`;
+}
 function showPage(id){const e=published().find(x=>x.id===id);if(!e)return title('RWF Video Archive','Not published yet','This show has not been released to the public, or its YouTube link is missing.')+`<div class="container"><a class="btn ghost" href="#/shows">← BACK TO SHOWS</a></div>`;
 const embed=`https://www.youtube-nocookie.com/embed/${encodeURIComponent(e.youtubeId)}?rel=0`;
 return `<div class="single-header"><div class="container single-head-inner">${logo(e)}<div><div class="eyebrow">${e.category==='PPV'?'RWF PPV':'RWF Television'} · ${esc(e.universeDate)}</div><h1 class="page-title">${esc(e.name)}</h1><div class="muted">${esc(e.location)} · ${esc(e.previewOnly?'Preview only — not published':niceDate(e.releaseAt))}</div></div></div></div><div class="container"><div class="full-show"><div class="eyebrow">Official RWF Broadcast</div><h2 class="section-title">Watch Full Show</h2><div class="video-box">${e.youtubeId?`<iframe src="${embed}" title="${esc(e.name)} — Watch Full Show" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe>`:`<div class="video-empty">YouTube video link not added yet. This is an offline layout preview.</div>`}</div><div class="info-list"><div class="info-field"><small>Show</small><b>${esc(e.name)}</b></div><div class="info-field"><small>Universe Date</small><b>${esc(e.universeDate)}</b></div><div class="info-field"><small>Publication</small><b>${esc(e.previewOnly?'Preview only — not published':niceDate(e.releaseAt))}</b></div><div class="info-field"><small>Location</small><b>${esc(e.location)}</b></div><div class="info-field"><small>Venue</small><b>${esc(e.venue||'TBA')}</b></div><div class="info-field"><small>Event Type</small><b>${e.category==='PPV'?'Pay-Per-View':e.category==='SPECIAL'?'Special Event':'Weekly Television'}</b></div></div>${e.description?`<div class="eyebrow">About This Event</div><p class="description">${esc(e.description)}</p>`:`<div style="height:45px"></div>`}<a class="btn ghost" href="#/${e.category==='PPV'?'ppv':'shows'}">← BACK TO ${e.category==='PPV'?'PPV ARCHIVE':'SHOWS'}</a></div></div>`}
