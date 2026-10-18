@@ -1,6 +1,7 @@
 (function(){'use strict';
 // Retire the old Blogger static Home page; use the blog root as the website.
-if(location.pathname.toLowerCase()==='/p/home.html'){location.replace('/'+(location.hash||'#/home'));return;}
+// Do not force redirects between Blogger's blog root and legacy Home page.
+// Blogger custom redirects must be managed under Settings > Errors and redirects.
 const DATA=window.RWF_DATA||{shows:[],roster:[],champions:[]};
 const ROOT=String(window.RWF_ASSET_BASE||'').replace(/\/?$/,'/');
 const app=document.getElementById('rwf-app');if(!app)return;
