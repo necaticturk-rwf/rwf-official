@@ -36,13 +36,9 @@ function scheduledCard(e){
  return `<div class="event-row">${logo(e)}<div><div class="eyebrow">${esc(status)}</div><h3>${esc(e.name)}</h3><div class="event-sub"><span>${esc(e.universeDate)}</span><time>${esc(timing)}</time><span>${esc(e.location)}</span></div></div><span class="arrow" aria-hidden="true">⌛</span></div>`;
 }
 function showList(kind){
- const pred=e=>kind==='ppv'?e.category==='PPV':e.category!=='PPV';
- const aired=published().filter(pred);
- const future=scheduled().filter(pred);
- const pending=awaiting().filter(pred);
- const section=(heading,arr,renderRow)=>`<section class="section"><div class="eyebrow">RWF PROGRAMMING</div><h2 class="section-title">${heading}</h2>${arr.length?`<div class="event-list">${arr.map(renderRow).join('')}</div>`:'<div class="empty">No shows in this category yet.</div>'}</section>`;
- return title('RWF Programming',kind==='ppv'?'Pay-Per-Views':'Shows','Published broadcasts and upcoming events, updated from RWF Booking Career.')+
- `<div class="container">${section('Watch Full Shows',aired,card)}${section('Coming Up',future,scheduledCard)}${pending.length?section('Awaiting Video Links',pending,scheduledCard):''}</div>`;
+ const aired=published().filter(e=>kind==='ppv'?e.category==='PPV':e.category!=='PPV');
+ return title('RWF Video Archive',kind==='ppv'?'Pay-Per-Views':'Shows',kind==='ppv'?'Watch released RWF pay-per-views.':'Watch released RWF television and special episodes.')+
+ `<div class="container">${aired.length?`<div class="event-list">${aired.map(card).join('')}</div>`:`<div class="empty archive-empty">No published ${kind==='ppv'?'pay-per-views':'shows'} with YouTube videos yet.</div>`}</div>`;
 }
 function showPage(id){const e=published().find(x=>x.id===id);if(!e)return title('RWF Video Archive','Not published yet','This show has not been released to the public, or its YouTube link is missing.')+`<div class="container"><a class="btn ghost" href="#/shows">← BACK TO SHOWS</a></div>`;
 const embed=`https://www.youtube-nocookie.com/embed/${encodeURIComponent(e.youtubeId)}?rel=0`;
